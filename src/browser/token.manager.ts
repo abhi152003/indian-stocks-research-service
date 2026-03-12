@@ -171,28 +171,54 @@ export class TokenManager {
         return TokenManager.instance;
     }
 
+    private async launchContext(chromiumSandbox: boolean): Promise<BrowserContext> {
+        logger.info('TokenManager: Launching browser context...', {
+            profilePath: config.PROFILE_PATH,
+            headless: config.HEADLESS,
+            chromiumSandbox,
+            browserChannel: config.BROWSER_CHANNEL,
+        });
+
+        return chromium.launchPersistentContext(config.PROFILE_PATH, {
+            channel: config.BROWSER_CHANNEL,
+            headless: config.HEADLESS,
+            chromiumSandbox,
+            ignoreDefaultArgs: ['--enable-automation'],
+            args: [
+                '--disable-blink-features=AutomationControlled',
+            ],
+            viewport: { width: 1280, height: 720 },
+        });
+    }
+
     public async initialize(): Promise<void> {
         if (this.isInitializing) return;
         this.isInitializing = true;
 
         try {
-            logger.info('TokenManager: Initializing playwright...', {
-                profilePath: config.PROFILE_PATH,
-                headless: config.HEADLESS,
-                chromiumSandbox: config.CHROMIUM_SANDBOX,
-                browserChannel: config.BROWSER_CHANNEL,
-            });
+            logger.info('TokenManager: Initializing playwright...');
 
-            this.context = await chromium.launchPersistentContext(config.PROFILE_PATH, {
-                channel: config.BROWSER_CHANNEL,
-                headless: config.HEADLESS,
-                chromiumSandbox: config.CHROMIUM_SANDBOX,
-                ignoreDefaultArgs: ['--enable-automation'],
-                args: [
-                    '--disable-blink-features=AutomationControlled',
-                ],
-                viewport: { width: 1280, height: 720 },
-            });
+            try {
+                this.context = await this.launchContext(config.CHROMIUM_SANDBOX);
+            } catch (error) {
+                const errorMessage = error instanceof Error ? error.message : String(error);
+                const errorStack = error instanceof Error ? error.stack : undefined;
+
+                logger.error('TokenManager: Browser launch failed', {
+                    chromiumSandbox: config.CHROMIUM_SANDBOX,
+                    browserChannel: config.BROWSER_CHANNEL,
+                    headless: config.HEADLESS,
+                    error: errorMessage,
+                    stack: errorStack,
+                });
+
+                if (config.CHROMIUM_SANDBOX) {
+                    logger.warn('TokenManager: Retrying browser launch with sandbox disabled');
+                    this.context = await this.launchContext(false);
+                } else {
+                    throw error;
+                }
+            }
 
             this.attachContextListeners(this.context);
 
@@ -217,7 +243,9 @@ export class TokenManager {
                 logger.warn('TokenManager: No token captured on startup. Manual login might be required if HEADLESS=false. Keep the browser open and trigger one Prysm query to force an authenticated API request.');
             }
         } catch (error) {
-            logger.error('TokenManager: Initialization failed', { error });
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            const errorStack = error instanceof Error ? error.stack : undefined;
+            logger.error('TokenManager: Initialization failed', { error: errorMessage, stack: errorStack });
             throw new TokenExtractionError('Failed to initialize Playwright context');
         } finally {
             this.isInitializing = false;
@@ -255,7 +283,9 @@ export class TokenManager {
 
             return this.token;
         } catch (error) {
-            logger.error('TokenManager: Refresh failed', { error });
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            const errorStack = error instanceof Error ? error.stack : undefined;
+            logger.error('TokenManager: Refresh failed', { error: errorMessage, stack: errorStack });
             throw error;
         }
     }
