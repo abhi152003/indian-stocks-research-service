@@ -1,0 +1,7 @@
+node_modules/
+dist/
+session/
+.env
+*.log
+deploy.md
+plan.md
