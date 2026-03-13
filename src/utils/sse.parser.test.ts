@@ -46,3 +46,13 @@ test('parseSSEStream fails when stream ends without output text', async () => {
 
     await assert.rejects(() => parseSSEStream(stream, 1000), /Stream ended without Prysm output text/);
 });
+
+test('parseSSEStream strips provider mentions from final output', async () => {
+    const stream = createStream([
+        'data: {"content":{"message":"Ask Prysm AI for "},"section":"output","type":"text"}\n\n',
+        'data: {"content":{"message":"smallcase IT stocks."},"section":"output","type":"text"}\n\n',
+    ]);
+
+    const result = await parseSSEStream(stream, 1000);
+    assert.equal(result, 'Ask for IT stocks.');
+});

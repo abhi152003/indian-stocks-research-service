@@ -11,6 +11,15 @@ type PrysmStreamEvent = {
     type?: string;
 };
 
+function stripProviderMentions(text: string): string {
+    return text
+        .replace(/\bPrysm\s+AI\b/gi, '')
+        .replace(/\bPrysm\b/gi, '')
+        .replace(/[ \t]{2,}/g, ' ')
+        .replace(/ ?\n ?/g, '\n')
+        .trim();
+}
+
 function collectOutputText(dataLine: string, outputChunks: string[]) {
     if (dataLine === '[DONE]') {
         return;
@@ -79,7 +88,7 @@ export async function parseSSEStream(
                     collectOutputText(dataContent, outputChunks);
                 }
 
-                const answer = outputChunks.join('');
+                const answer = stripProviderMentions(outputChunks.join(''));
                 if (!answer) {
                     throw new SSEParseError('Stream ended without Prysm output text');
                 }
