@@ -2,10 +2,32 @@ import { config } from '../config/config';
 import { logger } from '../utils/logger';
 import { TokenExpiredError, PrysmAPIError } from '../utils/errors';
 import { parseSSEStream } from '../utils/sse.parser';
+import { type PrysmAskOptions } from '../types/prysm-request';
 
 export class PrysmService {
-    public async ask(question: string, token: string): Promise<string> {
-        logger.info('PrysmService: Sending request...', { questionPreview: question.substring(0, 80) });
+    public async ask(question: string, token: string, options: PrysmAskOptions): Promise<string> {
+        logger.info('PrysmService: Sending request...', {
+            questionPreview: question.substring(0, 80),
+            chatModel: options.chatModel,
+            responseLength: options.responseLength,
+            thinkingLevel: options.thinkingLevel,
+            chatUuid: options.chatUuid,
+        });
+
+        const payload: Record<string, unknown> = {
+            user_input: question,
+            chat_model: options.chatModel,
+            with_timeline: true,
+            response_length: options.responseLength,
+        };
+
+        if (options.chatModel === 'strategic' && options.thinkingLevel) {
+            payload.thinking_level = options.thinkingLevel;
+        }
+
+        if (options.chatUuid) {
+            payload.chat_uuid = options.chatUuid;
+        }
 
         try {
             const response = await fetch(config.PRYSM_API_URL, {
@@ -15,13 +37,7 @@ export class PrysmService {
                     'Content-Type': 'application/json',
                     'Accept': 'text/event-stream',
                 },
-                body: JSON.stringify({
-                    user_input: question,
-                    chat_model: 'strategic',
-                    with_timeline: true,
-                    response_length: 'short',
-                    thinking_level: 'fast',
-                }),
+                body: JSON.stringify(payload),
             });
 
             if (response.status === 401) {

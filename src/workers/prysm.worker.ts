@@ -5,6 +5,7 @@ import { tokenManager } from '../browser/token.manager';
 import { logger } from '../utils/logger';
 import { TokenExpiredError } from '../utils/errors';
 import IORedis from 'ioredis';
+import { type PrysmAskOptions } from '../types/prysm-request';
 
 const connection = new IORedis(config.REDIS_URL, {
     maxRetriesPerRequest: null,
@@ -14,10 +15,11 @@ export function setupWorker() {
     const worker = new Worker(
         'prysm-questions',
         async (job: Job) => {
-            const { question } = job.data;
+            const { question, askOptions } = job.data as { question: string; askOptions: PrysmAskOptions };
             logger.info('Worker: Processing job', {
                 jobId: job.id,
                 question: question.substring(0, 50),
+                ...askOptions,
             });
 
             let token = tokenManager.getToken();
@@ -27,13 +29,13 @@ export function setupWorker() {
             }
 
             try {
-                const answer = await prysmService.ask(question, token);
+                const answer = await prysmService.ask(question, token, askOptions);
                 return { answer };
             } catch (error) {
                 if (error instanceof TokenExpiredError) {
                     logger.warn('Worker: Token expired, refreshing and retrying once...', { jobId: job.id });
                     const newToken = await tokenManager.refreshToken();
-                    const answer = await prysmService.ask(question, newToken);
+                    const answer = await prysmService.ask(question, newToken, askOptions);
                     return { answer };
                 }
                 throw error;

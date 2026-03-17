@@ -49,8 +49,8 @@ test('parseSSEStream fails when stream ends without output text', async () => {
 
 test('parseSSEStream strips provider mentions from final output', async () => {
     const stream = createStream([
-        'data: {"content":{"message":"Ask Prysm AI for "},"section":"output","type":"text"}\n\n',
-        'data: {"content":{"message":"smallcase IT stocks."},"section":"output","type":"text"}\n\n',
+        'data: {"content":{"message":"Ask prysm AI for "},"section":"output","type":"text"}\n\n',
+        'data: {"content":{"message":"IT stocks."},"section":"output","type":"text"}\n\n',
     ]);
 
     const result = await parseSSEStream(stream, 1000);

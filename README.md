@@ -44,7 +44,7 @@ A Node.js TypeScript service that bridges a REST API to Prysm's streaming chat e
    ```
   A Chrome window will open. Log in to Prysm manually. If you use Google sign-in, this must be the regular Chrome channel, not Playwright's bundled test browser. Once you see the "Captured fresh Bearer token" log, you can stop the service and set `HEADLESS=true`.
 
-Each incoming question creates a fresh Prysm request automatically. Clients do not manage Prysm tokens or chat IDs.
+Each incoming question creates a fresh Prysm request automatically. Clients do not manage Prysm tokens, but they can control the request shape with `chat_model`, `response_length`, optional `thinking_level`, and optional `chat_uuid`.
 
 ## API Usage
 
@@ -58,7 +58,7 @@ curl http://localhost:3000/research/health
 curl -X POST http://localhost:3000/research/ask \
   -H "x-api-key: your-secret-api-key" \
   -H "Content-Type: application/json" \
-  -d '{"question": "Screen for oil stocks with improving margins amid rising crude prices."}'
+  -d '{"question":"Screen for oil stocks with improving margins amid rising crude prices.","chat_model":"strategic","response_length":"short","thinking_level":"fast"}'
 ```
 
 Returns:
@@ -68,11 +68,17 @@ Returns:
 }
 ```
 
+Validation rules:
+- `chat_model`: `strategic` or `analytical`
+- `response_length`: `short`, `medium`, or `long`
+- `thinking_level`: `fast`, `balanced`, or `deep`, and only allowed when `chat_model` is `strategic`
+- `chat_uuid`: optional non-empty string
+
 ## Architecture
 
 1. **Client** sends POST request.
 2. **Express** validates key and enqueues a job.
 3. **Worker** picks up job, gets token from **TokenManager**.
-4. **Service** calls Prysm's streaming endpoint with fixed research defaults.
+4. **Service** calls Prysm's streaming endpoint using the request's model/length options.
 5. **SSE Parser** concatenates `section="output"` and `type="text"` chunks into a final answer.
 6. **Controller** returns the result to the client.
